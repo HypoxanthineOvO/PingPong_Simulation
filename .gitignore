@@ -1,0 +1,7 @@
+results/
+Paperimage/
+Drafts/
+.vscode/
+__pycache__/
+*.pyc
+*.npy
