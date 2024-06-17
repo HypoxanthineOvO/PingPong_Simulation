@@ -174,7 +174,15 @@ class Ball:
         ## Compute the distance between the ball and the line
         dist_ver = (self.pos[0] - racket.position).dot(racket.normal)
         dist_hor = (self.pos[0] - racket.position).cross(racket.normal)
-        return abs(dist_ver) < (self.radius + 0.01) and abs(dist_hor) < 0.075 and self.vel[0].dot(racket.normal) < 0
+        return (
+            abs(dist_ver) < (self.radius + 0.01) 
+            and 
+            abs(dist_hor) < 0.075 
+            and 
+            #self.vel[0].dot(racket.normal) < 0
+            # Also Consider the relative velocity
+            (self.vel[0] - racket.velocity).dot(racket.normal) < 0
+        )
     
     @ti.func
     def Bounce_with_racket(self, racket: Racket):
@@ -433,16 +441,16 @@ if __name__ == "__main__":
     
     # Initialize the racket and the ball
     racket_left = Racket(
-        position = vec2f(0.1, 0.3),
+        position = vec2f(0.1, 0.15),
         normal = vec2f(0.15, 0.2).normalized(),
         #normal = vec2f(0, 1).normalized(),
-        velocity = vec2f(6.5, -4.5)
+        velocity = vec2f(6.5, -5)
     )
     
     racket_right = Racket(
-        position = vec2f(2.3, 0.15),
-        normal = vec2f(-0.5, -0.5).normalized(),
-        velocity = vec2f(-8, 6.5)
+        position = vec2f(2.5, 0.25),
+        normal = vec2f(-0.5, -0.6).normalized(),
+        velocity = vec2f(-8.5, 1)
     )
     
     racket_ls = [racket_left]
@@ -450,27 +458,33 @@ if __name__ == "__main__":
     
     # Add more rackets
     racket_l1 = Racket(
-        position = vec2f(0.2, 0.15),
+        position = vec2f(0.1, 0.25),
         normal = vec2f(0.5, -0.4).normalized(),
-        velocity = vec2f(6.5, 4.5)
+        velocity = vec2f(0, 2)
     )
-    for i in range(10):
-        racket_ls.append(racket_l1)
     
     racket_r1 = Racket(
-        position = vec2f(2.4, 0.15),
+        position = vec2f(2.9, 0.15),
         normal = vec2f(-0.5, -0.3).normalized(),
         velocity = vec2f(-6.5, 4.5)
     )
+    
+    # If we need more rackets, we can add more. Now we repeat the same racket for 10 times.
+    for i in range(10):
+        racket_ls.append(racket_l1)
+    
     for i in range(10):
         racket_rs.append(racket_r1)
     
-    init_pos = vec2f(0.1, 0.4)
-    init_vel = vec2f(0, 1)
+    # Initialize the ball
+    init_pos = vec2f(0.1, 0.25)
+    init_vel = vec2f(0, 2)
     init_angvel = 0
     ball = Ball(init_pos, init_vel, init_angvel)
     
     ball_locs = []
+    ball_vels = []
+    ball_angvels = []
     
     reset = False
     
@@ -482,6 +496,7 @@ if __name__ == "__main__":
             reset = False
             ball = Ball(init_pos, init_vel, init_angvel)
             ball_locs = []
+            
             reset_image()
             gif_manager.clear()
         
@@ -514,20 +529,25 @@ if __name__ == "__main__":
         
         # Print Every 4 frames
         if gui.frame % 10 == 0:
-            print(f"Position: {ball.pos[0]}, \tVelocity: {ball.vel[0]}, \tAngular Velocity: {ball.ang_vel[0] / (2 * ti.math.pi)}r/s")
+           print(f"Position: {ball.pos[0]}, \tVelocity: {ball.vel[0]}, \tAngular Velocity: {ball.ang_vel[0] / (2 * ti.math.pi)}r/s")
             
         if gui.frame % 100 == 0:
-            print(f"Frame: {gui.frame}, \tBounce Record: {bounce_record}")
-            print(f"Left racket: {racket_left.position}, \tRight racket: {racket_right.position}")
+           print(f"Frame: {gui.frame}, \tBounce Record: {bounce_record}")
+           print(f"Left racket: {racket_left.position}, \tRight racket: {racket_right.position}")
         # Record the ball location
         ball_locs.append(ball.pos[0].to_numpy())
+        ball_vels.append(ball.vel[0].to_numpy())
+        ball_angvels.append(ball.ang_vel[0])
         
         gui.set_image(image)
         gif_manager.write_frame(image.to_numpy())
         gui.show()
         
         # If the ball is out of the screen, break
-        if (ball.pos[0][0] - ball.radius) * 600 > resolution[0] or (ball.pos[0][1] - ball.radius) * 600 > resolution[1]:
+        if (
+            (ball.pos[0][0] - ball.radius) * 600 > resolution[0] or (ball.pos[0][1] - ball.radius) * 600 > resolution[1] or
+            (ball.pos[0][0] + ball.radius) * 600 < 0 or (ball.pos[0][1] + ball.radius) * 600 < 0
+            ):
             break
             
         # Set the racket location
@@ -539,10 +559,9 @@ if __name__ == "__main__":
     
     # Visualize the ball locations
     ball_locs = np.array(ball_locs)
-    plt.figure(figsize = (18, 6))
-    plt.plot(ball_locs[:, 0] * 600, ball_locs[:, 1] * 600)
+    ball_vels = np.array(ball_vels)
+    ball_angvels = np.array(ball_angvels)
 
-    plt.xticks(np.arange(0, 2000, 225), np.arange(0, 4.5, 0.5))
-    
-    # Save Figure
-    plt.savefig("Ball_Locations.png")
+    np.save("Ball_Locations.npy", ball_locs)
+    np.save("Ball_Velocities.npy", ball_vels)
+    np.save("Ball_Angular_Velocities.npy", ball_angvels)

@@ -3,5 +3,9 @@ Paperimage/
 Drafts/
 .vscode/
 __pycache__/
+Experiments/
 *.pyc
 *.npy
+*.gif
+*.mp4
+AngvelAndSec

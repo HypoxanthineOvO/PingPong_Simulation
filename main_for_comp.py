@@ -96,13 +96,13 @@ class Ball:
     @ti.func
     def Check_Bounce_with_table(self):
         # Table is at y = 0 ~ y = 0.01 m
-        return (self.pos[0][1] - self.radius < 0.01) and (self.vel[0][1] < 0)
+        return (self.pos[0][1] - self.radius < 0.01) and (self.vel[0][1] < 0) and (self.pos[0][0]  < 1.5 + 2.74/2) and (self.pos[0][0] + self.radius > 1.5 - 2.74/2)
     
     @ti.func
     def Bounce_on_table_Naive(self):
         # Naive Bounce
         self.vel[0][1] = -self.vel[0][1]
-        self.vel[0][1] *= 0.9
+        self.vel[0][1] *= e_t_table
     @ti.func
     def Bounce_on_table(self):
         # Bounce on the table considering the rotation
@@ -137,6 +137,12 @@ class Ball:
         self.vel[0] = ti.Vector([-v_out[0], v_out[2]])
         self.ang_vel[0] = w_out[1]
     
+    @ti.func
+    def Check_Bounce_with_Net(self):
+        # Net is at x = 1.5 - 0.03 ~ x = 1.5 + 0.03 m
+        # Net is at y = 0.00 ~ y = 0.15 m
+        # Check the circle and the net square's intersection
+        return (self.pos[0][0] + self.radius > 1.5 - 0.03) and (self.pos[0][0] - self.radius < 1.5 + 0.03) and (self.pos[0][1] + self.radius > 0.00) and (self.pos[0][1] - self.radius < 0.15)
         
     @ti.kernel
     def update_ball(self, 
@@ -161,7 +167,10 @@ class Ball:
         if self.Check_Bounce_with_table():
             self.Bounce_on_table()
             print("!!!======= Bounce with Table =======!!!")
-        
+            print(f"Bounce Location: {self.pos[0]}")
+        if self.Check_Bounce_with_Net():
+            print("<<<======= Bounce with Net =======>>>")
+            
 
     # GUI Function
     @ti.kernel
@@ -305,12 +314,17 @@ if __name__ == "__main__":
     # GIF Manager
     gif_manager = GIF_Manager()
     
-    init_pos = vec2f(0.1, 0.1)
-    init_vel = vec2f(6, 2)
-    init_angvel = 0
+    init_pos = vec2f(0.1, 0.3)
+    #init_vel = vec2f(5, 2)
+    init_vel_value = 10
+    init_vel_angle = 60
+    init_vel = vec2f(init_vel_value * ti.cos(init_vel_angle / 180 * ti.math.pi), init_vel_value * ti.sin(init_vel_angle / 180 * ti.math.pi))
+    init_angvel = -140
     ball = Ball(init_pos, init_vel, init_angvel)
     
     ball_locs = []
+    ball_vels = []
+    ball_angvels = []
     
     reset = False
     
@@ -337,7 +351,10 @@ if __name__ == "__main__":
         ball.clear_force_and_torque()
         g, drag, magnus = compute_g(ball.mass), compute_drag(ball.vel[0]), compute_magnus(ball.vel[0], ball.ang_vel[0])
 
-        ball.add_force(g + drag + magnus)
+        ball.add_force(g)
+        ball.add_force(drag)
+        ball.add_force(magnus)
+        
         drag_torque = compute_drag_torque(ball.ang_vel[0])
         ball.add_torque(drag_torque)
         
@@ -358,6 +375,8 @@ if __name__ == "__main__":
             
         # Record the ball location
         ball_locs.append(ball.pos[0].to_numpy())
+        ball_vels.append(ball.vel[0].to_numpy())
+        ball_angvels.append(ball.ang_vel[0])
         
         gui.set_image(image)
         #gif_manager.write_frame(image.to_numpy())
@@ -366,12 +385,19 @@ if __name__ == "__main__":
         # If the ball is out of the screen, break
         if (ball.pos[0][0] - ball.radius) * 600 > resolution[0] or (ball.pos[0][1] - ball.radius) * 600 > resolution[1]:
             break
-            
+        
+        
     
     #gif_manager.save_gif("Table_Tennis_Simulator.gif", acc_ratio = 2.5)
     #gif_manager.save_video("Table_Tennis_Simulator.mp4", acc_ratio = 2.5)
     
+    
+    
     # Visualize the ball locations
     ball_locs = np.array(ball_locs)
-    # Save the ball locations
-    np.save("ball_locs.npy", ball_locs)
+    ball_vels = np.array(ball_vels)
+    ball_angvels = np.array(ball_angvels)
+
+    np.save("Ball_Locations.npy", ball_locs)
+    np.save("Ball_Velocities.npy", ball_vels)
+    np.save("Ball_Angular_Velocities.npy", ball_angvels)
